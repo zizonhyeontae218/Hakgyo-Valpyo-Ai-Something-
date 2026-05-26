@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 전성시대</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080808;
+    --white: #f0ede8;
+    --amber: #f0a500;
+    --amber-dim: #7a5200;
+    --blue: #3a6ea5;
+    --blue-light: #6fa8d8;
+    --green: #3a8a5a;
+    --grey: #2a2a2a;
+    --grey-mid: #555;
+    --grey-light: #999;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100vw; height:100vh; background:var(--bg); overflow:hidden; color:var(--white); }
+
+  .deck { width:100%; height:100%; position:relative; }
+  .slide {
+    position:absolute; inset:0; display:grid;
+    opacity:0; pointer-events:none;
+    transition: opacity .45s cubic-bezier(.4,0,.2,1);
+  }
+  .slide.active { opacity:1; pointer-events:all; }
+
+  /* nav */
+  .nav {
+    position:fixed; bottom:22px; right:28px;
+    display:flex; align-items:center; gap:10px; z-index:999;
+  }
+  .nav-btn {
+    width:34px; height:34px; border:1px solid var(--grey-mid);
+    background:transparent; color:var(--white); cursor:pointer;
+    font-size:13px; display:flex; align-items:center; justify-content:center;
+    transition:.2s;
+  }
+  .nav-btn:hover { border-color:var(--amber); color:var(--amber); }
+  .nav-info {
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px; color:var(--grey-mid); letter-spacing:.1em; min-width:52px; text-align:center;
+  }
+
+  /* type */
+  .slide-label {
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9px; letter-spacing:.3em; text-transform:uppercase; color:var(--amber);
+  }
+  .h-big {
+    font-family:'Bebas Neue',sans-serif;
+    font-size:60px; line-height:.92; color:var(--white);
+  }
+  .h-big em { color:var(--amber); font-style:normal; }
+  .h-big.blue em { color:var(--blue-light); }
+  .h-big.green em { color:#6fd49a; }
+  .body-text {
+    font-family:'Noto Sans KR',sans-serif;
+    font-size:12.5px; line-height:1.9; color:var(--grey-light); font-weight:300;
+  }
+  .body-text strong { color:var(--white); font-weight:700; }
+  .chart-title {
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9px; letter-spacing:.2em; text-transform:uppercase; color:var(--grey-mid);
+  }
+  .rule { border:none; border-top:1px solid var(--grey); }
+
+  /* bar chart */
+  .bar-group { display:flex; align-items:center; gap:10px; flex:1; max-height:48px; }
+  .bar-year { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--grey-mid); width:38px; flex-shrink:0; }
+  .bar-track { flex:1; height:22px; background:var(--grey); position:relative; overflow:hidden; }
+  .bar-fill {
+    height:100%; width:0%;
+    transition: width 1.2s cubic-bezier(.4,0,.2,1);
+    position:relative;
+  }
+  .bar-fill::after {
+    content:attr(data-val); position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--bg); font-weight:700; white-space:nowrap;
+  }
+  .slide.active .bar-fill { width:var(--w); }
+
+  /* stat card */
+  .stat-card { border-left:3px solid var(--amber); padding:10px 16px; background:rgba(240,165,0,.04); }
+  .stat-card.blue { border-color:var(--blue); background:rgba(58,110,165,.04); }
+  .stat-card.green { border-color:var(--green); background:rgba(58,138,90,.04); }
+  .stat-card .num { font-family:'Bebas Neue',sans-serif; font-size:46px; line-height:1; color:var(--white); }
+  .stat-card .unit-tag {
+    font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--amber);
+    letter-spacing:.15em; text-transform:uppercase; display:block; margin-bottom:2px;
+  }
+  .stat-card.blue .unit-tag { color:var(--blue-light); }
+  .stat-card.green .unit-tag { color:#6fd49a; }
+  .stat-card .desc { font-family:'Noto Sans KR',sans-serif; font-size:11px; color:var(--grey-light); margin-top:2px; }
+
+  /* donut */
+  .donut-wrap { position:relative; width:180px; height:180px; }
+  .donut-svg { width:100%; height:100%; transform:rotate(-90deg); }
+  .donut-track { fill:none; stroke:var(--grey); stroke-width:20; }
+  .donut-seg { fill:none; stroke-width:20; stroke-dasharray:0 283; transition:stroke-dasharray 1.4s cubic-bezier(.4,0,.2,1); }
+  .slide.active .donut-seg { stroke-dasharray:var(--da); }
+  .donut-label {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+  }
+  .donut-label .pct { font-family:'Bebas Neue',sans-serif; font-size:36px; color:var(--amber); line-height:1; }
+  .donut-label .sub { font-family:'IBM Plex Mono',monospace; font-size:8px; color:var(--grey-light); letter-spacing:.08em; }
+
+  /* legend */
+  .legend { display:flex; flex-direction:column; gap:7px; }
+  .legend-item { display:flex; align-items:center; gap:9px; }
+  .legend-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .legend-text { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--grey-light); }
+  .legend-text strong { color:var(--white); }
+
+  /* progress */
+  .prog-item-label { display:flex; justify-content:space-between; margin-bottom:4px; }
+  .prog-item-label .name { font-family:'Noto Sans KR',sans-serif; font-size:12px; font-weight:700; color:var(--white); }
+  .prog-item-label .pct-val { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--amber); }
+  .prog-track { height:5px; background:var(--grey); }
+  .prog-fill { height:100%; width:0%; transition:width 1.2s cubic-bezier(.4,0,.2,1) .3s; }
+  .slide.active .prog-fill { width:var(--pw); }
+
+  /* news pill */
+  .news-pill {
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--grey); border-left:3px solid var(--amber);
+    padding:8px 14px; margin-bottom:8px;
+  }
+  .news-pill.blue { border-color:var(--blue); }
+  .news-pill.green { border-color:var(--green); }
+  .news-pill .date {
+    font-family:'IBM Plex Mono',monospace; font-size:8px;
+    color:var(--amber); letter-spacing:.1em; flex-shrink:0;
+  }
+  .news-pill.blue .date { color:var(--blue-light); }
+  .news-pill.green .date { color:#6fd49a; }
+  .news-pill .txt { font-family:'Noto Sans KR',sans-serif; font-size:11px; color:var(--grey-light); line-height:1.5; }
+  .news-pill .txt strong { color:var(--white); }
+
+  /* local AI card */
+  .ai-card {
+    border:1px solid var(--grey); padding:12px 16px;
+    display:flex; gap:14px; align-items:flex-start;
+  }
+  .ai-card-icon {
+    width:36px; height:36px; border-radius:8px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Bebas Neue',sans-serif; font-size:13px; color:var(--bg);
+  }
+  .ai-card-body .name { font-family:'Noto Sans KR',sans-serif; font-size:13px; font-weight:900; color:var(--white); }
+  .ai-card-body .sub { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--grey-mid); letter-spacing:.08em; margin-top:2px; }
+  .ai-card-body .desc { font-family:'Noto Sans KR',sans-serif; font-size:11px; color:var(--grey-light); margin-top:4px; line-height:1.6; }
+
+  /* direction card */
+  .dir-card { background:var(--grey); padding:26px 22px; display:flex; flex-direction:column; justify-content:space-between; }
+  .dir-card:first-child { background:var(--amber); }
+  .dir-card:first-child .dir-num,
+  .dir-card:first-child .dir-title,
+  .dir-card:first-child .dir-body { color:var(--bg); }
+  .dir-card:first-child .dir-bar-track { background:rgba(0,0,0,.2); }
+  .dir-card:first-child .dir-bar-fill { background:var(--bg); }
+  .dir-num { font-family:'Bebas Neue',sans-serif; font-size:64px; line-height:1; color:var(--grey-mid); }
+  .dir-title { font-family:'Noto Sans KR',sans-serif; font-size:17px; font-weight:900; color:var(--white); line-height:1.3; }
+  .dir-body { font-family:'Noto Sans KR',sans-serif; font-size:11px; color:var(--grey-light); line-height:1.8; margin-top:6px; }
+  .dir-bar-track { height:3px; background:rgba(255,255,255,.08); margin-top:16px; }
+  .dir-bar-fill { height:100%; width:0%; background:var(--amber); transition:width 1.4s cubic-bezier(.4,0,.2,1) .6s; }
+  .slide.active .dir-bar-fill { width:var(--dw); }
+  .dir-bar-label { display:flex; justify-content:flex-end; margin-top:3px; font-family:'IBM Plex Mono',monospace; font-size:8px; color:var(--grey-mid); }
+  .dir-card:first-child .dir-bar-label { color:rgba(0,0,0,.45); }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+  .slide.active > * { animation:fadeUp .5s cubic-bezier(.4,0,.2,1) both; }
+  .slide.active > *:nth-child(2){animation-delay:.07s}
+  .slide.active > *:nth-child(3){animation-delay:.14s}
+
+  /* ═══ S0 표지 ═══ */
+  #s0 { grid-template-columns:1fr 1fr; }
+  #s0 .left {
+    padding:60px 48px; display:flex; flex-direction:column; justify-content:flex-end;
+    border-right:1px solid var(--grey); position:relative;
+  }
+  #s0 .right { padding:60px 48px; display:flex; flex-direction:column; justify-content:space-between; }
+  .cover-num {
+    font-family:'Bebas Neue',sans-serif; font-size:210px; line-height:.85;
+    color:var(--grey); position:absolute; top:20px; left:28px; letter-spacing:-.02em; user-select:none;
+  }
+  .cover-title-small { font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:var(--amber); margin-bottom:14px; position:relative; z-index:1; }
+  .cover-title { font-family:'Bebas Neue',sans-serif; font-size:84px; line-height:.88; color:var(--white); position:relative; z-index:1; }
+  .cover-title span { color:var(--amber); }
+  .cover-sub { font-family:'DM Serif Display',serif; font-style:italic; font-size:14px; color:var(--grey-light); margin-top:18px; position:relative; z-index:1; line-height:1.6; }
+  .cover-meta-item { display:flex; justify-content:space-between; align-items:baseline; border-bottom:1px solid var(--grey); padding-bottom:6px; margin-bottom:8px; }
+  .cover-meta-item .k { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.2em; text-transform:uppercase; color:var(--grey-mid); }
+  .cover-meta-item .v { font-family:'Noto Sans KR',sans-serif; font-size:13px; font-weight:700; color:var(--white); }
+  .cover-big-stat { text-align:right; }
+  .cover-big-stat .num { font-family:'Bebas Neue',sans-serif; font-size:90px; line-height:1; color:var(--amber); }
+  .cover-big-stat .unit { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--grey-mid); letter-spacing:.1em; }
+
+  /* ═══ S1 도입 ═══ */
+  #s1 { grid-template-columns:1fr 1fr; padding:52px 60px; gap:52px; align-items:center; }
+  #s1 .left { display:flex; flex-direction:column; gap:18px; }
+  #s1 .right { display:flex; flex-direction:column; gap:14px; }
+
+  /* brain */
+  .brain-diagram { position:relative; width:100%; aspect-ratio:1; max-width:300px; margin:0 auto; }
+  .brain-ring { position:absolute; border-radius:50%; border:1px solid; display:flex; align-items:center; justify-content:center; }
+  .ring1{inset:0;border-color:var(--amber)}
+  .ring2{inset:16%;border-color:var(--grey-mid);background:radial-gradient(circle,rgba(240,165,0,.06),transparent 70%)}
+  .ring3{inset:31%;border-color:var(--grey);background:radial-gradient(circle,rgba(240,165,0,.12),transparent 70%)}
+  .brain-center { position:absolute;inset:43%;background:var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center; }
+  .brain-center span { font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--bg);font-weight:700; }
+  .brain-node { position:absolute;width:54px;padding:4px 5px;background:var(--grey);border:1px solid var(--grey-mid);font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--white);text-align:center;line-height:1.4; }
+  .brain-node.top{top:-2%;left:50%;transform:translateX(-50%)}
+  .brain-node.right{right:-6%;top:50%;transform:translateY(-50%)}
+  .brain-node.bottom{bottom:-2%;left:50%;transform:translateX(-50%)}
+  .brain-node.left{left:-6%;top:50%;transform:translateY(-50%)}
+  .brain-node.tr{top:9%;right:9%}
+  .brain-node.bl{bottom:9%;left:9%}
+  .dots-div{display:flex;gap:6px;align-items:center}
+  .dots-div::before,.dots-div::after{content:'';flex:1;height:1px;background:var(--grey)}
+  .dots-div span{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--amber);letter-spacing:.15em}
+
+  /* ═══ S-PRICE 가격 폭등 슬라이드 ═══ */
+  #s-price { grid-template-columns:1fr 1.5fr; padding:48px 60px; gap:48px; align-items:center; }
+  #s-price .left { display:flex; flex-direction:column; gap:16px; }
+  #s-price .right { display:flex; flex-direction:column; gap:18px; }
+
+  .price-tag {
+    display:inline-flex; align-items:baseline; gap:6px;
+    border-left:3px solid #e05a5a; padding:10px 16px;
+    background:rgba(224,90,90,.05);
+  }
+  .price-tag .num {
+    font-family:'Bebas Neue',sans-serif; font-size:64px; line-height:1; color:#e05a5a;
+  }
+  .price-tag .unit { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--grey-mid); letter-spacing:.1em; }
+
+  /* svg chart */
+  .chart-wrap { width:100%; }
+  .chart-wrap svg { width:100%; }
+
+  /* inline bar for comparison */
+  .cmp-row { display:flex; flex-direction:column; gap:9px; }
+  .cmp-item { display:flex; flex-direction:column; gap:4px; }
+  .cmp-label-row { display:flex; justify-content:space-between; align-items:baseline; }
+  .cmp-name { font-family:'Noto Sans KR',sans-serif; font-size:11px; color:var(--white); font-weight:700; }
+  .cmp-pct { font-family:'IBM Plex Mono',monospace; font-size:10px; }
+  .cmp-track { height:8px; background:var(--grey); }
+  .cmp-fill { height:100%; width:0%; transition:width 1.3s cubic-bezier(.4,0,.2,1) .4s; }
+  .slide.active .cmp-fill { width:var(--cw); }
+
+  /* svg line animation */
+  .price-line {
+    stroke-dasharray: 800;
+    stroke-dashoffset: 800;
+    transition: stroke-dashoffset 2s cubic-bezier(.4,0,.2,1) .3s;
+  }
+  .slide.active .price-line { stroke-dashoffset: 0; }
+
+  /* ═══ S2 에너지 차트 ═══ */
+  #s2 { grid-template-rows:auto 1fr; padding:48px 60px; gap:24px; }
+  #s2 .top { display:flex; justify-content:space-between; align-items:flex-end; }
+  #s2 .body { display:grid; grid-template-columns:1fr 1px 1fr; gap:36px; }
+  .bar-chart { display:flex; flex-direction:column; gap:0; height:100%; }
+
+  /* ═══ S3 우주 데이터센터 ═══ */
+  #s3 { grid-template-columns:1fr 1fr; padding:48px 60px; gap:52px; align-items:start; }
+  #s3 .left { display:flex; flex-direction:column; gap:16px; }
+  #s3 .right { display:flex; flex-direction:column; gap:10px; }
+
+  .space-stat-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px; }
+
+  /* ═══ S4 로컬 AI ═══ */
+  #s4 { grid-template-columns:1fr 1fr; padding:48px 60px; gap:52px; align-items:start; }
+  #s4 .left { display:flex; flex-direction:column; gap:14px; }
+  #s4 .right { display:flex; flex-direction:column; gap:9px; }
+
+  /* ═══ S5 에너지 구성 ═══ */
+  #s5 { grid-template-columns:1fr 1fr; padding:48px 60px; gap:52px; align-items:center; }
+  #s5 .left { display:flex; flex-direction:column; gap:18px; align-items:flex-start; }
+  #s5 .right { display:flex; flex-direction:column; gap:16px; }
+
+  /* ═══ S6 정리 ═══ */
+  #s6 { grid-template-rows:auto 1fr auto; padding:48px 64px; gap:20px; }
+  #s6 .top { display:flex; justify-content:space-between; align-items:flex-end; }
+  .direction-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:2px; height:100%; }
+  #s6 .bottom { border-top:1px solid var(--grey); padding-top:16px; display:flex; justify-content:space-between; align-items:center; }
+  .closing-quote { font-family:'DM Serif Display',serif; font-style:italic; font-size:15px; color:var(--grey-light); }
+  .closing-quote strong { color:var(--amber); font-style:normal; }
+  .closing-name { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--grey-mid); letter-spacing:.15em; text-align:right; }
+
+  /* ═══ S7 마무리 ═══ */
+  #s7 { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; position:relative; }
+  .end-bg-text { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:280px;color:rgba(255,255,255,.02);letter-spacing:-.04em;user-select:none;line-height:1; }
+  .end-label { font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.4em; text-transform:uppercase; color:var(--amber); margin-bottom:24px; position:relative; z-index:1; }
+  .end-title { font-family:'Bebas Neue',sans-serif; font-size:96px; line-height:.9; color:var(--white); position:relative; z-index:1; }
+  .end-rule { width:100px; height:1px; background:var(--amber); margin:24px auto; position:relative; z-index:1; }
+  .end-sub { font-family:'DM Serif Display',serif; font-style:italic; font-size:15px; color:var(--grey-light); position:relative; z-index:1; line-height:1.7; }
+  .end-meta-row { display:flex; gap:44px; margin-top:32px; border-top:1px solid var(--grey); padding-top:22px; position:relative; z-index:1; }
+  .end-m { text-align:center; }
+  .end-m .k { font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.22em; text-transform:uppercase; color:var(--grey-mid); display:block; margin-bottom:3px; }
+  .end-m .v { font-family:'Noto Sans KR',sans-serif; font-size:13px; font-weight:700; color:var(--white); }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- ══ S0 표지 ══ -->
+<div class="slide active" id="s0">
+  <div class="left">
+    <div class="cover-num">AI</div>
+    <div class="cover-title-small">◆ 2026학년도 · 화법과 작문 수행평가</div>
+    <div class="cover-title">전성<span>시대</span></div>
+    <div class="cover-sub">인공지능이 바꾸는 세계 —<br>데이터, 전력, 그리고 우리의 선택</div>
+  </div>
+  <div class="right">
+    <div class="cover-big-stat">
+      <div class="unit">글로벌 데이터센터 전력 소비</div>
+      <div class="num">600<span style="font-size:46px;">+</span></div>
+      <div class="unit">TWh / 2026 추정 · IEA</div>
+    </div>
+    <div>
+      <div class="cover-meta-item"><span class="k">학번</span><span class="v">31025</span></div>
+      <div class="cover-meta-item"><span class="k">이름</span><span class="v">최현태</span></div>
+      <div class="cover-meta-item"><span class="k">교과</span><span class="v">화법과 작문</span></div>
+      <div class="cover-meta-item"><span class="k">주제</span><span class="v">신문 주제 발표</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S1 도입 ══ -->
+<div class="slide" id="s1">
+  <div class="left">
+    <div class="slide-label">01 — 도입</div>
+    <div class="h-big">AI는<br>어떻게<br><em>생각하는가</em></div>
+    <hr class="rule">
+    <div class="body-text">인간은 <strong>뇌</strong>로 생각한다.<br>AI는 <strong>데이터</strong>와 <strong>파라미터</strong>로 생각한다.</div>
+    <div class="body-text">구동하려면 — <strong>RAM, GPU, 막대한 전력</strong>이 필요하다.<br>이 비용이 지금 어디까지 왔는가.</div>
+  </div>
+  <div class="right">
+    <div class="brain-diagram">
+      <div class="brain-ring ring1"></div>
+      <div class="brain-ring ring2"></div>
+      <div class="brain-ring ring3"></div>
+      <div class="brain-center"><span>MODEL</span></div>
+      <div class="brain-node top">PARAMETER<br>수십억 개</div>
+      <div class="brain-node right">GPU<br>연산</div>
+      <div class="brain-node bottom">전력<br>POWER</div>
+      <div class="brain-node left" style="font-size:7.5px;">RAM<br>메모리</div>
+      <div class="brain-node tr">훈련<br>DATA</div>
+      <div class="brain-node bl">냉각<br>COOL</div>
+    </div>
+    <div class="dots-div" style="margin-top:14px;"><span>데이터 → 학습 → 추론 → 응답</span></div>
+  </div>
+</div>
+
+<!-- ══ S-PRICE 도입부 2 · 소비자 가격 폭등 ══ -->
+<div class="slide" id="s-price">
+  <div class="left">
+    <div class="slide-label">01.5 — 도입 · 소비자 영향</div>
+    <div class="h-big" style="font-size:50px;color:var(--white);">AI 수요가<br>부른 <em style="color:#e05a5a;">PC 부품</em><br>가격 폭등</div>
+    <hr class="rule">
+    <div class="body-text">
+      데이터센터의 <strong>HBM·GDDR7 폭식</strong>이<br>
+      소비자용 메모리 공급망을 압박하고 있다.
+    </div>
+    <div class="price-tag" style="margin-top:4px;">
+      <div>
+        <div class="unit" style="margin-bottom:2px;">삼성 DDR5 5600 16GB · 다나와</div>
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span class="num">+362<span style="font-size:36px;">%</span></span>
+        </div>
+        <div class="unit">69,246원 → 319,670원 (25.09 → 현재)</div>
+      </div>
+    </div>
+    <div class="body-text" style="font-size:11px;margin-top:4px;">
+      GPU·스마트폰 플래그십·SSD 등<br>
+      AI 연산 관련 부품 전반에 걸쳐 가격 상승 중.
+    </div>
+  </div>
+  <div class="right">
+    <div>
+      <div class="chart-title" style="margin-bottom:8px;">◆ 삼성 DDR5 5600 16GB 최저가 추이 (다나와)</div>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 400 165" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#e05a5a"/>
+              <stop offset="100%" stop-color="#e05a5a" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <line x1="40" y1="27"  x2="392" y2="27"  stroke="#2a2a2a" stroke-width="1"/>
+          <line x1="40" y1="49"  x2="392" y2="49"  stroke="#2a2a2a" stroke-width="1"/>
+          <line x1="40" y1="70"  x2="392" y2="70"  stroke="#2a2a2a" stroke-width="1"/>
+          <line x1="40" y1="92"  x2="392" y2="92"  stroke="#2a2a2a" stroke-width="1"/>
+          <line x1="40" y1="114" x2="392" y2="114" stroke="#2a2a2a" stroke-width="1"/>
+          <line x1="40" y1="135" x2="392" y2="135" stroke="#2a2a2a" stroke-width="1"/>
+          <text x="36" y="31"  text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="8" fill="#555">300K</text>
+          <text x="36" y="53"  text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="8" fill="#555">250K</text>
+          <text x="36" y="74"  text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="8" fill="#555">200K</text>
+          <text x="36" y="96"  text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="8" fill="#555">150K</text>
+          <text x="36" y="118" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="8" fill="#555">100K</text>
+          <text x="36" y="139" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="8" fill="#555">50K</text>
+          <polygon points="40,129 79,127 118,120 157,101 196,81 235,57 274,40 313,29 352,23 392,19 392,135 40,135" fill="url(#priceGrad)" opacity="0.25"/>
+          <polyline class="price-line" points="40,129 79,127 118,120 157,101 196,81 235,57 274,40 313,29 352,23 392,19" fill="none" stroke="#e05a5a" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+          <circle cx="40"  cy="129" r="3" fill="#2a2a2a" stroke="#555"    stroke-width="1.5"/>
+          <circle cx="79"  cy="127" r="5" fill="#e05a5a" stroke="#080808" stroke-width="1.5"/>
+          <text   x="79"   y="121" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="7.5" fill="#e05a5a">69,246원</text>
+          <circle cx="118" cy="120" r="3" fill="#2a2a2a" stroke="#555"    stroke-width="1.5"/>
+          <circle cx="157" cy="101" r="3" fill="#2a2a2a" stroke="#555"    stroke-width="1.5"/>
+          <circle cx="196" cy="81"  r="3" fill="#2a2a2a" stroke="#555"    stroke-width="1.5"/>
+          <circle cx="235" cy="57"  r="3" fill="#2a2a2a" stroke="#555"    stroke-width="1.5"/>
+          <circle cx="274" cy="40"  r="3" fill="#2a2a2a" stroke="#555"    stroke-width="1.5"/>
+          <circle cx="313" cy="29"  r="3" fill="#2a2a2a" stroke="#555"    stroke-width="1.5"/>
+          <circle cx="352" cy="23"  r="3" fill="#2a2a2a" stroke="#555"    stroke-width="1.5"/>
+          <circle cx="392" cy="19"  r="5" fill="#f0a500" stroke="#080808" stroke-width="1.5"/>
+          <text   x="377"  y="14"  text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#f0a500">319,670원</text>
+          <text x="40"  y="152" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#555">25.06</text>
+          <text x="79"  y="152" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#e05a5a">25.09</text>
+          <text x="157" y="152" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#555">25.12</text>
+          <text x="274" y="152" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#555">26.03</text>
+          <text x="392" y="152" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#f0a500">현재</text>
+          <line x1="40" y1="135" x2="392" y2="135" stroke="#555" stroke-width="1"/>
+          <line x1="40" y1="10"  x2="40"  y2="135" stroke="#555" stroke-width="1"/>
+        </svg>
+      </div>
+    </div>
+    <div>
+      <div class="chart-title" style="margin-bottom:10px;">◆ AI 수요 연계 부품 가격 상승률 비교</div>
+      <div class="cmp-row">
+        <div class="cmp-item">
+          <div class="cmp-label-row"><span class="cmp-name">삼성 DDR5 5600 16GB</span><span class="cmp-pct" style="color:#e05a5a;">+362%</span></div>
+          <div class="cmp-track"><div class="cmp-fill" style="--cw:100%;background:#e05a5a;"></div></div>
+        </div>
+        <div class="cmp-item">
+          <div class="cmp-label-row"><span class="cmp-name">RTX 4060 (EOL 감산)</span><span class="cmp-pct" style="color:var(--amber);">+13%</span></div>
+          <div class="cmp-track"><div class="cmp-fill" style="--cw:18%;background:var(--amber);"></div></div>
+        </div>
+        <div class="cmp-item">
+          <div class="cmp-label-row"><span class="cmp-name">스마트폰 플래그십 평균</span><span class="cmp-pct" style="color:var(--amber);">+10%</span></div>
+          <div class="cmp-track"><div class="cmp-fill" style="--cw:14%;background:var(--amber);"></div></div>
+        </div>
+        <div class="cmp-item">
+          <div class="cmp-label-row"><span class="cmp-name">NVMe SSD 1TB</span><span class="cmp-pct" style="color:var(--grey-mid);">+5%</span></div>
+          <div class="cmp-track"><div class="cmp-fill" style="--cw:7%;background:var(--grey-mid);"></div></div>
+        </div>
+      </div>
+      <div class="body-text" style="font-size:10px;margin-top:8px;color:var(--grey-mid);">
+        * DDR5: 다나와 최저가 추이 · GPU: gpudeals.net · 기타: 시장 추정치
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S2 에너지 차트 ══ -->
+<div class="slide" id="s2">
+  <div class="top">
+    <div>
+      <div class="slide-label">02 — 전개 · 데이터센터 전력</div>
+      <div class="h-big" style="font-size:50px;">전력 소비,<br><em>폭발적</em>으로 증가 중</div>
+    </div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--grey-mid);letter-spacing:.12em;text-align:right;">SOURCE: IEA, 2024</div>
+  </div>
+  <div class="body">
+    <div class="bar-chart">
+      <div class="chart-title" style="margin-bottom:14px;">◆ 글로벌 데이터센터 전력 소비 (TWh)</div>
+      <div class="bar-group"><div class="bar-year">2020</div><div class="bar-track"><div class="bar-fill" style="--w:33%;background:var(--amber);" data-val="200 TWh"></div></div></div>
+      <div class="bar-group"><div class="bar-year">2022</div><div class="bar-track"><div class="bar-fill" style="--w:40%;background:var(--amber);" data-val="240 TWh"></div></div></div>
+      <div class="bar-group"><div class="bar-year">2023</div><div class="bar-track"><div class="bar-fill" style="--w:55%;background:var(--amber);" data-val="330 TWh"></div></div></div>
+      <div class="bar-group"><div class="bar-year">2024</div><div class="bar-track"><div class="bar-fill" style="--w:69%;background:var(--amber);" data-val="415 TWh"></div></div></div>
+      <div class="bar-group"><div class="bar-year">2026↑</div><div class="bar-track"><div class="bar-fill" style="--w:100%;background:var(--amber-dim);" data-val="600+ TWh (추정)"></div></div></div>
+      <div class="chart-title" style="margin:16px 0 14px;">◆ 검색 vs AI 쿼리 에너지 비교</div>
+      <div class="bar-group"><div class="bar-year" style="font-size:9px;">구글 검색</div><div class="bar-track"><div class="bar-fill" style="--w:10%;background:var(--blue);" data-val="0.3 Wh"></div></div></div>
+      <div class="bar-group"><div class="bar-year" style="font-size:9px;">AI 쿼리</div><div class="bar-track"><div class="bar-fill" style="--w:97%;background:var(--blue);" data-val="2.9 Wh · 약 10배"></div></div></div>
+    </div>
+    <div style="background:var(--grey);width:1px;"></div>
+    <div style="display:flex;flex-direction:column;gap:14px;justify-content:center;">
+      <div class="stat-card">
+        <span class="unit-tag">GPT-4 학습 전력</span>
+        <div class="num">50</div>
+        <div class="desc">GWh 추정 — 한국 소도시 1개월 소비량</div>
+      </div>
+      <div class="stat-card blue">
+        <span class="unit-tag">AI 쿼리 1회 에너지</span>
+        <div class="num">10x</div>
+        <div class="desc">Google 일반 검색 대비 약 10배 전력 소비</div>
+      </div>
+      <div class="stat-card">
+        <span class="unit-tag">냉각 비용</span>
+        <div class="num" style="font-size:38px;">40%</div>
+        <div class="desc">데이터센터 전력의 40%는 냉각에 소비</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S3 우주 데이터센터 ══ -->
+<div class="slide" id="s3">
+  <div class="left">
+    <div class="slide-label">03 — 전개 · 우주 데이터센터</div>
+    <div class="h-big blue" style="font-size:52px;">지상의 한계 —<br><em>우주로</em> 올라간다</div>
+    <hr class="rule">
+    <div class="body-text">
+      지상 데이터센터는 <strong>토지·전력·냉각수</strong>를 끝없이 소비한다.<br>
+      해법으로 <strong>궤도 데이터센터</strong>가 부상 중이다.
+    </div>
+    <div class="body-text" style="margin-top:4px;">
+      우주에서는 <strong>태양광 발전이 무제한</strong>으로 가능하고,<br>
+      탄소 배출 없이 AI를 훈련할 수 있다.
+    </div>
+    <div class="space-stat-row">
+      <div class="stat-card blue" style="padding:10px 12px;">
+        <span class="unit-tag">2030년 시장 전망</span>
+        <div class="num" style="font-size:36px;">$20B</div>
+        <div class="desc">CAGR 85~90% · ainewshub</div>
+      </div>
+      <div class="stat-card green" style="padding:10px 12px;">
+        <span class="unit-tag">탄소 저감 가능성</span>
+        <div class="num" style="font-size:36px;">Zero</div>
+        <div class="desc">탄소 중립 데이터센터 · Nature Electronics 2025</div>
+      </div>
+    </div>
+  </div>
+  <div class="right">
+    <div class="chart-title" style="margin-bottom:10px;">◆ 최신 뉴스 · 2026</div>
+
+    <div class="news-pill">
+      <span class="date">2026.05</span>
+      <div class="txt"><strong>SpaceX · Blue Origin</strong>, 궤도 데이터센터 공식 발표 — 수천~수백만 개 위성망으로 구성, 태양광 전력 · Bloomberg</div>
+    </div>
+    <div class="news-pill blue">
+      <span class="date">2026.04</span>
+      <div class="txt"><strong>美 GAO 보고서</strong> — "우주 DC는 지상의 토지·전력·냉각수 수요를 줄일 수 있다" 공식 인정 · GAO-26-109012</div>
+    </div>
+    <div class="news-pill green">
+      <span class="date">2025.11</span>
+      <div class="txt"><strong>Nature Electronics</strong> — 우주 탄소 중립 데이터센터 개발 논문 발표 (LEO·시스루나 공간 활용)</div>
+    </div>
+    <div class="news-pill blue">
+      <span class="date">2026.01</span>
+      <div class="txt"><strong>Rocket Lab</strong>, 美 우주개발국 위성 계약 <strong>$805M</strong> 체결 — 우주 인프라 민간 투자 본격화</div>
+    </div>
+    <div class="news-pill">
+      <span class="date">2025</span>
+      <div class="txt"><strong>NVIDIA · IBM · HPE + NASA · ESA</strong> 협력 — 방사선 강화 서버 개발, AI 훈련·실시간 분석 목표</div>
+    </div>
+
+    <hr class="rule" style="margin-top:8px;">
+    <div class="body-text" style="margin-top:8px;font-size:11px;">
+      中장기 목표 — 2035년까지 <strong>기가와트급 LEO 컴퓨팅 클러스터</strong> 구축, 신규 DC 투자의 10~15% 흡수 예상
+    </div>
+  </div>
+</div>
+
+<!-- ══ S4 로컬 AI ══ -->
+<div class="slide" id="s4">
+  <div class="left">
+    <div class="slide-label">04 — 전개 · 로컬 AI</div>
+    <div class="h-big green" style="font-size:52px;">서버 없이 —<br><em>내 기기</em> 위에서</div>
+    <hr class="rule">
+    <div class="body-text">
+      클라우드에 의존하지 않고, <strong>스마트폰·PC 위</strong>에서<br>
+      AI가 직접 추론한다. 데이터가 기기 밖을 나가지 않는다.
+    </div>
+    <div class="body-text" style="margin-top:4px;">
+      <strong>프라이버시</strong>·<strong>오프라인</strong>·<strong>비용 절감</strong> — 세 마리 토끼를 잡는다.
+    </div>
+
+    <div style="margin-top:12px;">
+      <div class="chart-title" style="margin-bottom:10px;">◆ 로컬 AI 가속 — 모바일 칩 처리량</div>
+      <div style="margin-bottom:8px;">
+        <div class="prog-item-label"><span class="name">A17 Pro · Neural Engine</span><span class="pct-val" style="color:#6fd49a;">35 TOPS</span></div>
+        <div class="prog-track"><div class="prog-fill" style="--pw:70%;background:#3a8a5a;"></div></div>
+      </div>
+      <div>
+        <div class="prog-item-label"><span class="name">A18 Pro · Neural Engine</span><span class="pct-val" style="color:#6fd49a;">50 TOPS</span></div>
+        <div class="prog-track"><div class="prog-fill" style="--pw:100%;background:#3a8a5a;"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="right">
+    <div class="chart-title" style="margin-bottom:8px;">◆ 주요 로컬 AI 사례</div>
+    <div class="ai-card">
+      <div class="ai-card-icon" style="background:#f9e000;color:#000;">K</div>
+      <div class="ai-card-body">
+        <div class="name">Kanana (나나) · 카카오</div>
+        <div class="sub">KAKAO · 국내 서비스</div>
+        <div class="desc">카카오톡에서 무료로 사용 가능한 국내 소형 AI. 별도 앱 없이 채팅 앱 내 실행.</div>
+      </div>
+    </div>
+    <div class="ai-card">
+      <div class="ai-card-icon" style="background:#ff6900;">Q</div>
+      <div class="ai-card-body">
+        <div class="name">Qwen 3.5 · 알리바바</div>
+        <div class="sub">ALIBABA CLOUD · 2026.03 출시</div>
+        <div class="desc">iPhone 17에서 오프라인 실행. 0.8B~9B 모델 — iPhone 12~16 전 기종 지원. 인터넷 없이도 작동.</div>
+      </div>
+    </div>
+    <div class="ai-card">
+      <div class="ai-card-icon" style="background:#1d6ad4;">A</div>
+      <div class="ai-card-body">
+        <div class="name">Apple Intelligence</div>
+        <div class="sub">APPLE · A17/A18/A19 탑재 기기</div>
+        <div class="desc">온디바이스 추론으로 Siri 고도화. Neural Engine 35~50 TOPS. 데이터 서버 전송 없음.</div>
+      </div>
+    </div>
+    <div class="ai-card">
+      <div class="ai-card-icon" style="background:#4285f4;">G</div>
+      <div class="ai-card-body">
+        <div class="name">FunctionGemma · Google</div>
+        <div class="sub">GOOGLE · 270M 파라미터 · 2025.12</div>
+        <div class="desc">270M 경량 모델. 스마트폰·브라우저·IoT에서 음성·텍스트 명령을 오프라인으로 실행.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S5 에너지 구성 ══ -->
+<div class="slide" id="s5">
+  <div class="left">
+    <div class="slide-label">05 — 환경 문제</div>
+    <div class="h-big" style="font-size:50px;">데이터센터 전력의<br><em>40%</em>는<br>냉각에 쓰인다</div>
+    <div class="donut-wrap" style="margin-top:18px;">
+      <svg class="donut-svg" viewBox="0 0 100 100">
+        <circle class="donut-track" cx="50" cy="50" r="45"/>
+        <circle class="donut-seg" cx="50" cy="50" r="45" stroke="var(--amber)" style="--da:141.5 141.5;stroke-dashoffset:0;"/>
+        <circle class="donut-seg" cx="50" cy="50" r="45" stroke="var(--blue)" style="--da:113.2 169.8;stroke-dashoffset:-141.5;"/>
+        <circle class="donut-seg" cx="50" cy="50" r="45" stroke="var(--grey-mid)" style="--da:28.3 254.7;stroke-dashoffset:-254.7;"/>
+      </svg>
+      <div class="donut-label"><span class="pct">40%</span><span class="sub">냉각 비용</span></div>
+    </div>
+    <div class="legend" style="margin-top:14px;">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--amber);"></div><div class="legend-text"><strong>50%</strong> 서버·연산</div></div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--blue);"></div><div class="legend-text"><strong>40%</strong> 냉각 시스템</div></div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--grey-mid);"></div><div class="legend-text"><strong>10%</strong> 기타 인프라</div></div>
+    </div>
+  </div>
+  <div class="right">
+    <div class="slide-label" style="opacity:0;">—</div>
+    <div class="h-big" style="font-size:42px;">빅테크의<br><em>재생에너지</em><br>전환</div>
+    <div class="body-text" style="margin:6px 0;">한·중·일 연구기관 등 전 세계에서 <strong>친환경 AI 인프라</strong> 논의 활발.</div>
+    <hr class="rule">
+    <div class="chart-title" style="margin:10px 0 12px;">◆ 빅테크 재생에너지 목표 달성률</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><div class="prog-item-label"><span class="name">Google</span><span class="pct-val">90%</span></div><div class="prog-track"><div class="prog-fill" style="--pw:90%;background:var(--amber);"></div></div></div>
+      <div><div class="prog-item-label"><span class="name">Microsoft</span><span class="pct-val">85%</span></div><div class="prog-track"><div class="prog-fill" style="--pw:85%;background:var(--blue);"></div></div></div>
+      <div><div class="prog-item-label"><span class="name">Meta</span><span class="pct-val">80%</span></div><div class="prog-track"><div class="prog-fill" style="--pw:80%;background:var(--green);"></div></div></div>
+      <div><div class="prog-item-label"><span class="name">국내 평균</span><span class="pct-val">30%</span></div><div class="prog-track"><div class="prog-fill" style="--pw:30%;background:var(--grey-mid);"></div></div></div>
+    </div>
+    <hr class="rule" style="margin-top:16px;">
+    <div class="body-text" style="font-size:11px;margin-top:8px;">
+      AI 훈련 탄소 발자국 감소 위해<br>
+      <strong>재생에너지·전용 칩셋·우주 DC</strong> 세 축으로 대응 중.
+    </div>
+  </div>
+</div>
+
+<!-- ══ S6 정리 ══ -->
+<div class="slide" id="s6">
+  <div class="top">
+    <div>
+      <div class="slide-label">06 — 정리</div>
+      <div class="h-big" style="font-size:44px;">더 <em>지혜로운</em> AI로</div>
+    </div>
+  </div>
+  <div class="direction-grid">
+    <div class="dir-card">
+      <div><div class="dir-num">01</div><div class="dir-title">재생에너지<br>전환</div><div class="dir-body">태양광·풍력·핵융합 기반으로 데이터센터를 운영. 빅테크 목표 90%.</div></div>
+      <div><div class="dir-bar-track"><div class="dir-bar-fill" style="--dw:90%"></div></div><div class="dir-bar-label">90% — 빅테크 목표</div></div>
+    </div>
+    <div class="dir-card">
+      <div><div class="dir-num">02</div><div class="dir-title">우주<br>데이터센터</div><div class="dir-body">태양광 무제한·탄소 제로. SpaceX·Blue Origin 올해 공식 발표.</div></div>
+      <div><div class="dir-bar-track"><div class="dir-bar-fill" style="--dw:55%"></div></div><div class="dir-bar-label">$20B — 2030년 시장</div></div>
+    </div>
+    <div class="dir-card">
+      <div><div class="dir-num">03</div><div class="dir-title">로컬 AI<br>확산</div><div class="dir-body">Qwen·Apple Intelligence·FunctionGemma — 서버 없이 기기 위에서 직접 추론.</div></div>
+      <div><div class="dir-bar-track"><div class="dir-bar-fill" style="--dw:45%"></div></div><div class="dir-bar-label">45% — 모바일 보급률</div></div>
+    </div>
+  </div>
+  <div class="bottom">
+    <div class="closing-quote">"더 똑똑한 AI"보다 — <strong>더 지혜로운, 더 친환경적인 AI</strong>로</div>
+    <div class="closing-name">31025 최현태<br>화법과 작문 · 2026</div>
+  </div>
+</div>
+
+<!-- ══ S7 마무리 ══ -->
+<div class="slide" id="s7">
+  <div class="end-bg-text">AI</div>
+  <div class="end-label">◆ Q&amp;A</div>
+  <div class="end-title">감사합니다</div>
+  <div class="end-rule"></div>
+  <div class="end-sub">경청해 주셔서 감사합니다<br>질문 있으신 분 계십니까?</div>
+  <div class="end-meta-row">
+    <div class="end-m"><span class="k">발표자</span><span class="v">31025 최현태</span></div>
+    <div class="end-m"><span class="k">교과</span><span class="v">화법과 작문</span></div>
+    <div class="end-m"><span class="k">주제</span><span class="v">AI 전성시대</span></div>
+    <div class="end-m"><span class="k">평가</span><span class="v">15점</span></div>
+  </div>
+</div>
+
+</div>
+
+<div class="nav">
+  <button class="nav-btn" onclick="move(-1)">←</button>
+  <span class="nav-info" id="ctr">01 / 09</span>
+  <button class="nav-btn" onclick="move(1)">→</button>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let cur=0;
+  function move(d){
+    slides[cur].classList.remove('active');
+    cur=(cur+d+slides.length)%slides.length;
+    slides[cur].classList.add('active');
+    document.getElementById('ctr').textContent=
+      String(cur+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+  }
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key==='ArrowDown')move(1);
+    if(e.key==='ArrowLeft'||e.key==='ArrowUp')move(-1);
+  });
+</script>
+</body>
+</html>
