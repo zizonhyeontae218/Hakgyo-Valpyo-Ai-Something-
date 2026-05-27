@@ -2,6 +2,12 @@
 
 ## 발표 실행기(Electron)
 
+### npm 없이 실행(단일 파일)
+- `standalone-presenter.html` 파일 하나만 다운로드해서 브라우저로 열면 실행됩니다.
+- `Viewer 창 열기`를 누른 뒤, 발표용 `.html/.htm` 파일을 선택해서 로드하세요.
+- 이전/다음 버튼 또는 좌/우 화살표로 슬라이드를 넘길 수 있습니다.
+
+
 ### 실행
 ```bash
 npm install

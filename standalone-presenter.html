@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>발표 실행기 (단일 파일)</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #121212; color: #fff; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 20px; display: grid; gap: 14px; }
+    h1 { margin: 0; font-size: 24px; }
+    p { margin: 0; color: #cfcfcf; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; }
+    button, label.file-btn {
+      padding: 10px 14px; border: 1px solid #3b3b3b; border-radius: 8px;
+      background: #2d6cdf; color: #fff; font-weight: 700; cursor: pointer;
+      display: inline-flex; align-items: center;
+    }
+    button.secondary, label.file-btn.secondary { background: #1f1f1f; }
+    .status { padding: 10px 12px; border-radius: 8px; background: #1b1b1b; color: #ddd; font-size: 14px; }
+    textarea {
+      width: 100%; min-height: 58vh; resize: vertical; border-radius: 8px;
+      border: 1px solid #333; background: #1e1e1e; color: #fff; padding: 12px;
+      font-size: 15px; line-height: 1.5;
+    }
+    input[type="file"] { display: none; }
+    .hint { font-size: 13px; color: #9a9a9a; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #2a2a2a; padding: 1px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>발표 실행기 (npm 없이 단일 파일)</h1>
+    <p>이 파일 하나만 다운로드해서 열면 됩니다. Viewer 창을 열고, 발표 HTML 파일을 선택한 뒤 이전/다음을 누르세요.</p>
+
+    <div class="row">
+      <button id="openViewer">Viewer 창 열기</button>
+      <label for="htmlInput" class="file-btn secondary">발표 HTML 선택</label>
+      <input id="htmlInput" type="file" accept=".html,.htm,text/html" />
+      <button id="prevBtn" class="secondary">◀ 이전</button>
+      <button id="nextBtn" class="secondary">다음 ▶</button>
+    </div>
+
+    <div class="status" id="status">상태: Viewer 창을 먼저 열어주세요.</div>
+    <p class="hint">단축키: <span class="kbd">←</span> / <span class="kbd">→</span> 로 슬라이드 이동</p>
+    <textarea placeholder="여기에 발표 스크립트를 작성하세요."></textarea>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const openViewerBtn = document.getElementById('openViewer');
+    const htmlInput = document.getElementById('htmlInput');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    let viewerWindow = null;
+
+    const viewerShellHtml = `<!doctype html>
+<html lang="ko"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HTML Viewer</title>
+<style>
+html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden}
+#frame{width:100%;height:100%;border:0;background:#111}
+#msg{position:fixed;left:12px;bottom:12px;font:12px Arial,sans-serif;color:#ddd;background:rgba(0,0,0,.5);padding:6px 8px;border-radius:6px}
+</style></head>
+<body>
+<iframe id="frame"></iframe><div id="msg">현재: 파일을 기다리는 중</div>
+<script>
+const frame=document.getElementById('frame');
+const msg=document.getElementById('msg');
+window.addEventListener('message',(ev)=>{
+  const d=ev.data||{};
+  if(d.type==='LOAD_HTML'){
+    frame.srcdoc=d.payload||'';
+    msg.textContent='현재: '+(d.name||'선택된 파일');
+  }else if(d.type==='NAV'){
+    const k=d.key;
+    try{
+      frame.contentWindow?.document?.dispatchEvent(new KeyboardEvent('keydown',{key:k,code:k,bubbles:true}));
+      frame.contentWindow?.dispatchEvent(new KeyboardEvent('keydown',{key:k,code:k,bubbles:true}));
+    }catch(_e){}
+  }
+});
+</script></body></html>`;
+
+    function setStatus(text) { statusEl.textContent = `상태: ${text}`; }
+
+    function openViewer() {
+      if (viewerWindow && !viewerWindow.closed) {
+        viewerWindow.focus();
+        setStatus('Viewer 창이 이미 열려 있습니다.');
+        return;
+      }
+      viewerWindow = window.open('', 'presentationViewer', 'popup=yes,width=1280,height=720');
+      if (!viewerWindow) {
+        setStatus('팝업이 차단되었습니다. 브라우저에서 팝업 허용 후 다시 시도하세요.');
+        return;
+      }
+      viewerWindow.document.open();
+      viewerWindow.document.write(viewerShellHtml);
+      viewerWindow.document.close();
+      setStatus('Viewer 창이 열렸습니다. 이제 발표 HTML 파일을 선택하세요.');
+    }
+
+    function sendNav(key) {
+      if (!viewerWindow || viewerWindow.closed) {
+        setStatus('Viewer 창이 닫혀 있습니다. 먼저 Viewer 창을 열어주세요.');
+        return;
+      }
+      viewerWindow.postMessage({ type: 'NAV', key }, '*');
+    }
+
+    async function loadHtmlFile(file) {
+      if (!file) return;
+      if (!/\.html?$/i.test(file.name)) {
+        setStatus('HTML 파일(.html/.htm)만 선택할 수 있습니다.');
+        return;
+      }
+      if (!viewerWindow || viewerWindow.closed) {
+        setStatus('Viewer 창을 먼저 열어주세요.');
+        return;
+      }
+      const text = await file.text();
+      viewerWindow.postMessage({ type: 'LOAD_HTML', payload: text, name: file.name }, '*');
+      setStatus(`로드 완료: ${file.name}`);
+    }
+
+    openViewerBtn.addEventListener('click', openViewer);
+    prevBtn.addEventListener('click', () => sendNav('ArrowLeft'));
+    nextBtn.addEventListener('click', () => sendNav('ArrowRight'));
+    htmlInput.addEventListener('change', (e) => loadHtmlFile(e.target.files?.[0]));
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') sendNav('ArrowLeft');
+      else if (event.key === 'ArrowRight') sendNav('ArrowRight');
+    });
+  </script>
+</body>
+</html>
