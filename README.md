@@ -21,3 +21,21 @@ npm start
 npm run build:win
 ```
 - 설치형(NSIS) + 포터블 EXE 산출물 생성
+- Linux/macOS에서는 `wine` 미설치 시 로컬 빌드가 실패할 수 있음
+
+### 릴리즈 만들기(권장)
+1. 버전 갱신
+   ```bash
+   npm version patch
+   ```
+2. 태그 푸시
+   ```bash
+   git push --follow-tags
+   ```
+3. GitHub Actions의 `Build Windows Release` 워크플로우가 Windows 러너에서 실행됨
+4. Artifacts에서 설치파일(`*Setup*.exe`)과 포터블(`*Portable*.exe`) 다운로드
+
+
+### Windows에서 바로 실행(.bat)
+- `run-windows.bat` 더블클릭: 의존성 설치 후 앱 실행
+- `build-windows.bat` 더블클릭: 설치형(NSIS)+포터블 EXE 빌드 시도
